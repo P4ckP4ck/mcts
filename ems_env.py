@@ -54,9 +54,8 @@ class ems(gym.Env):
 
     def __init__(self, EP_LEN):
         super(ems, self).__init__()
-        self.LOG_EVENTS = False
         self.EP_LEN = EP_LEN
-        self.obs = 3
+        self.obs = 6
         self.offset = 24 * 4 * 7 * 13
         self.observation_space = spaces.Box(low=0, high=1, shape = (self.obs,), dtype=np.float32)
         self.action_space = spaces.Discrete(3)
@@ -154,6 +153,14 @@ class ems(gym.Env):
         self.cum_r = 0
         return state
 
+    def calc_time_waves(self):
+        sin_day = np.sin(2*np.pi*self.time/(24*4))
+        cos_day = np.cos(2*np.pi*self.time/(24*4))
+        sin_year = np.sin(2*np.pi*self.time/(24*4*365))
+        cos_year = np.cos(2*np.pi*self.time/(24*4*365))
+        return sin_day, cos_day, sin_year, cos_year
+
+
     def step(self, action):
         """
         Info
@@ -188,39 +195,28 @@ class ems(gym.Env):
         ...
 
         """
-        r, res_bool, is_valid_action = -1, 0, False
+        r, is_valid_action = -1, False
         #Action 0: Nichts
         if action == 0: r, is_valid_action = 0, True
         #Action 1: Laden
         if action == 1 and self.residual < 0:
-            r = abs(self.residual)*100
+            r = 1#abs(self.residual)*100
             is_valid_action = self.el_storage.charge(abs(self.residual), 15, self.time)
         #Action 2: Entladen
         if action == 2 and self.residual > 0:
-            r = abs(self.residual)*100
+            r = 1#abs(self.residual)*100
             is_valid_action = self.el_storage.discharge(abs(self.residual), 15, self.time)
         #Fehler- und Rewardüberprüfung
         if not is_valid_action: r = -1
         #Bereite den nächsten state vor
         self.residual = self.loadprofile.valueForTimestamp(self.time) - self.pv.valueForTimestamp(self.time)*10
         if self.pv.valueForTimestamp(self.time) > self.max_pv: self.max_pv = self.pv.valueForTimestamp(self.time)
-
-        res_bool = self.residual > 0
         #state = [self.el_storage.stateOfCharge/self.el_storage.capacity, self.loadprofile.valueForTimestamp(self.time)/self.max, self.pv.valueForTimestamp(self.time)*10/self.max]
-        state = [self.el_storage.stateOfCharge/self.el_storage.capacity, self.residual, res_bool]
+        state = np.hstack([self.calc_time_waves(), self.el_storage.stateOfCharge/self.el_storage.capacity, self.residual])
         #state = np.array([self.el_storage.stateOfCharge/self.el_storage.capacity, self.loadprofile.data[self.time]/self.max_lp, self.pv.data[self.time]/self.max_pv, res_bool])
         self.time += 1
         done = self.time >= self.rand_start + self.EP_LEN
         #needs rework
         #print(self.residual)
         self.cum_r += r
-        if self.LOG_EVENTS:
-            self.log.append([action, r, state[-1], state[-2]])
-            if done:
-                #try:
-                #    old_log = np.loadtxt("full_log_ppo2.txt")
-                #except:
-                #    old_log = np.zeros((self.EP_LEN,4))
-                #full_log = np.r_[np.array(old_log), np.array(self.log)]
-                np.savetxt("full_log_ppo2.txt", self.log)
         return state, r, done, self.cum_r

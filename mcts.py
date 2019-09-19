@@ -5,31 +5,32 @@ import numpy as np
 
 
 class UCTNode():
-    def __init__(self, game_state, move, parent=None):
-        self.game_state = game_state
+    def __init__(self, state, move, parent=None, action_size=3):
+        self.state = state
         self.move = move
         self.is_expanded = False
         self.parent = parent  # Optional[UCTNode]
-        self.children = {}  # Dict[move, UCTNode]
-        self.child_priors = np.zeros([362], dtype=np.float32)
-        self.child_total_value = np.zeros([362], dtype=np.float32)
-        self.child_number_visits = np.zeros([362], dtype=np.float32)
+        self.children = {}  # Dict[[move, prob], UCTNode]
+        self.child_priors = np.zeros([action_size], dtype=np.float32)
+        self.child_total_value = np.zeros([action_size], dtype=np.float32)
+        self.child_number_visits = np.zeros([action_size], dtype=np.float32)
+
 
     @property
     def number_visits(self):
-        return self.parent.child_number_visits[self.move]
+        return self.parent.child_number_visits[self.move[0]]
 
     @number_visits.setter
     def number_visits(self, value):
-        self.parent.child_number_visits[self.move] = value
+        self.parent.child_number_visits[self.move[0]] = value
 
     @property
     def total_value(self):
-        return self.parent.child_total_value[self.move]
+        return self.parent.child_total_value[self.move[0]]
 
     @total_value.setter
     def total_value(self, value):
-        self.parent.child_total_value[self.move] = value
+        self.parent.child_total_value[self.move[0]] = value
 
     def child_Q(self):
         return self.child_total_value / (1 + self.child_number_visits)
@@ -41,11 +42,12 @@ class UCTNode():
     def best_child(self):
         return np.argmax(self.child_Q() + self.child_U())
 
-    def select_leaf(self):
+    def select_leaf(self, forecaster):
         current = self
         while current.is_expanded:
             best_move = current.best_child()
-            current = current.maybe_add_child(best_move)
+            prob = np.random.choice(range(11), p = forecaster.predict(np.expand_dims(calc_time_waves(current.state.time), axis=0))[0])
+            current = current.maybe_add_child((best_move, prob))
         return current
 
     def expand(self, child_priors):
@@ -53,17 +55,16 @@ class UCTNode():
         self.child_priors = child_priors
 
     def maybe_add_child(self, move):
-        if move not in self.children:
+        if move not in self.children :
             self.children[move] = UCTNode(
-                self.game_state.play(move), move, parent=self)
+                self.state.play(move), move, parent=self)
         return self.children[move]
 
     def backup(self, value_estimate: float):
         current = self
         while current.parent is not None:
             current.number_visits += 1
-            current.total_value += (value_estimate *
-                                    self.game_state.to_play)
+            current.total_value += (value_estimate)
             current = current.parent
 
 
@@ -74,35 +75,50 @@ class DummyNode(object):
         self.child_number_visits = collections.defaultdict(float)
 
 
-def UCT_search(game_state, num_reads):
-    root = UCTNode(game_state, move=None, parent=DummyNode())
+def UCT_search(state, num_reads, evaluator=None, forecaster=None):
+    root = UCTNode(state, move=(None, None), parent=DummyNode())
     for _ in range(num_reads):
-        leaf = root.select_leaf()
-        child_priors, value_estimate = NeuralNet.evaluate(leaf.game_state)
+        leaf = root.select_leaf(forecaster)
+        child_priors, value_estimate = evaluator.predict(np.expand_dims(leaf.state.state, axis=0))
         leaf.expand(child_priors)
         leaf.backup(value_estimate)
-    return np.argmax(root.child_number_visits)
+    return np.argmax(root.child_number_visits), root
 
 
-class NeuralNet():
-    @classmethod
-    def evaluate(self, game_state):
-        return np.random.random([362]), np.random.random()
+# class NeuralNet():
+#     @classmethod
+#     def evaluate(self, state):
+#         return np.random.random([3]), np.random.random()
 
+def calc_time_waves(time):
+    sin_day = np.sin(2*np.pi*time/(24*4))
+    cos_day = np.cos(2*np.pi*time/(24*4))
+    sin_year = np.sin(2*np.pi*time/(24*4*365))
+    cos_year = np.cos(2*np.pi*time/(24*4*365))
+    return np.array([sin_day, cos_day, sin_year, cos_year])
 
-class GameState():
-    def __init__(self, to_play=1):
-        self.to_play = to_play
+class StateNode():
+    def __init__(self, state, time, max_c = 25):
+        self.state = state
+        self.time = time
+        self.max_c = max_c
 
     def play(self, move):
-        # Hier muss die
-        return GameState(-self.to_play)
+        time = self.time + 1
+        action = move[0]
+        state_transition = move[1]
+        next_residual = (state_transition - 5)/10
+        if action == 0:
+            state_of_charge = self.state[4]
+        elif action == 1:
+            state_of_charge = (self.state[4] * self.max_c + abs(self.state[5]) * 0.9) / self.max_c
+        elif action == 2:
+            state_of_charge = (self.state[4] * self.max_c - abs(self.state[5]) * 0.9) / self.max_c
+        else:
+            raise LookupError("Performed action not found!")
+        if state_of_charge < 0: state_of_charge = 0
+        if state_of_charge > 1: state_of_charge = 1
+        time_waves = calc_time_waves(time)
+        state = np.hstack([time_waves, state_of_charge, next_residual])
+        return StateNode(state, time)
 
-
-num_reads = 10000
-import time
-
-tick = time.time()
-UCT_search(GameState(), num_reads)
-tock = time.time()
-print("Took %s sec to run %s times" % (tock - tick, num_reads))
