@@ -95,7 +95,7 @@ class VPPPhotovoltaic(VPPComponent):
         timeseries.set_index(timeseries.index, inplace=True)
         
         self.timeseries = timeseries
-        
+        self.timeseries.fillna(0, inplace=True)
         return timeseries
 
 
