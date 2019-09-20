@@ -15,7 +15,6 @@ class UCTNode():
         self.child_total_value = np.zeros([action_size], dtype=np.float32)
         self.child_number_visits = np.zeros([action_size], dtype=np.float32)
 
-
     @property
     def number_visits(self):
         return self.parent.child_number_visits[self.move[0]]
@@ -50,7 +49,6 @@ class UCTNode():
             current = current.maybe_add_child((best_move, prob))
         return current
 
-
     def expand(self, child_priors):
         self.is_expanded = True
         self.child_priors = child_priors
@@ -60,7 +58,6 @@ class UCTNode():
             self.children[move] = UCTNode(
                 self.state.play(move), move, parent=self)
         return self.children[move]
-
 
     def backup(self, value_estimate: float):
         current = self
@@ -83,7 +80,6 @@ class DummyNode(object):
         self.child_number_visits = collections.defaultdict(float)
         self.value_estimates = np.zeros([3])
 
-
 def UCT_search(state, num_reads, evaluator=None, forecaster=None, use_dirichlet=False):
     root = UCTNode(state, move=(0, 0), parent=DummyNode())
     for _ in range(num_reads):
@@ -93,12 +89,6 @@ def UCT_search(state, num_reads, evaluator=None, forecaster=None, use_dirichlet=
         leaf.expand(calc_direchlet(child_priors, use_dirichlet))
         leaf.backup(leaf.parent.value_estimates[leaf.move[0]])
     return np.argmax(root.child_number_visits), root
-
-
-# class NeuralNet():
-#     @classmethod
-#     def evaluate(self, state):
-#         return np.random.random([3]), np.random.random()
 
 def calc_time_waves(time):
     sin_day = np.sin(2*np.pi*time/(24*4))

@@ -21,7 +21,7 @@ def prepare_eval_train(eval_train, evaluator_network):
     actions = np.argmax(np.stack(eval_train[:,2]), axis=1)
     rewards = np.stack(eval_train[:,1])
     x = states
-    # action_priors = pd.DataFrame(np.vstack(eval_df[2])/eval_df[2].sum())
+    # action_priors = pd.DataFrame(np.vstack(eval_df[2])/eval_df[2].sum()) #soft update version
     index = range(x.shape[0])
     action_priors = np.zeros((x.shape[0], 3))
     action_priors[index, actions] = 1
@@ -50,9 +50,6 @@ def plot_test(evaluator_network, forecast_network, LOGFILE=True, PLOT=False):
         soc.append(state[4])
         cum_r += r
     tqdm.write(f" Current weights achieve a score of {cum_r}")
-    # if cum_r > self.high_score and self.SAVE_HIGHSCORE:
-    #     self.high_score = cum_r
-    #     self.actor_target.save_weights(f"high_score_weights_{cum_r}.h5")
     if PLOT:
         pd.DataFrame(soc).plot()
         plt.show(block=True)
@@ -71,8 +68,6 @@ if __name__ == "__main__":
     forecast_network.load_weights("./networks/forecast_weights.h5")
     evaluator_network.load_weights("./networks/evaluator_weights.h5")
     for episode in tqdm(range(EPISODES)):
-        # eval_train = []
-        # forecast_train = []
         state = env.reset()
         cum_reward = 0
         done = False
