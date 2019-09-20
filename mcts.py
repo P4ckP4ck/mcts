@@ -70,7 +70,6 @@ class UCTNode():
             current = current.parent
 
 def calc_direchlet(child_priors, use_dirichlet, dir_x=0.75, dir_alpha=1):
-    #Noch nicht vollständig
     if use_dirichlet:
         priors = dir_x * child_priors[0] + (1 - dir_x) * np.random.dirichlet([dir_alpha * child_priors[0]])
         return priors
