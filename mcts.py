@@ -50,6 +50,7 @@ class UCTNode():
             current = current.maybe_add_child((best_move, prob))
         return current
 
+
     def expand(self, child_priors):
         self.is_expanded = True
         self.child_priors = child_priors
@@ -72,7 +73,7 @@ def calc_direchlet(child_priors, use_dirichlet, dir_x=0.75, dir_alpha=1):
     #Noch nicht vollständig
     if use_dirichlet:
         priors = dir_x * child_priors[0] + (1 - dir_x) * np.random.dirichlet([dir_alpha * child_priors[0]])
-        return np.random.dirichlet(child_priors[0])
+        return priors
     else:
         return child_priors[0]
 
@@ -81,15 +82,17 @@ class DummyNode(object):
         self.parent = None
         self.child_total_value = collections.defaultdict(float)
         self.child_number_visits = collections.defaultdict(float)
+        self.value_estimates = np.zeros([3])
 
 
 def UCT_search(state, num_reads, evaluator=None, forecaster=None, use_dirichlet=False):
-    root = UCTNode(state, move=(None, None), parent=DummyNode())
+    root = UCTNode(state, move=(0, 0), parent=DummyNode())
     for _ in range(num_reads):
         leaf = root.select_leaf(forecaster)
         child_priors, value_estimate = evaluator.predict(np.expand_dims(leaf.state.state[4:], axis=0))
+        leaf.value_estimates = value_estimate[0]
         leaf.expand(calc_direchlet(child_priors, use_dirichlet))
-        leaf.backup(value_estimate)
+        leaf.backup(leaf.parent.value_estimates[leaf.move[0]])
     return np.argmax(root.child_number_visits), root
 
 
