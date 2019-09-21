@@ -1,50 +1,39 @@
 
-from multiprocessing import Process, Manager, cpu_count, Pool
+import os
 import time
-from training import create_training_samples, training_step, plot_test
-import numpy as np
-import pandas as pd
+from multiprocessing import cpu_count, Process
 
-# def create_training_samples(eval_train, forecast_train):
-#     for i in range(5000):
-#         eval_train.put(i)
-#         forecast_train.put(np.sqrt(i))
+from tqdm import tqdm
 
-def calc_training_set(num_processes = cpu_count()):
-    eval_train = Manager().Queue()
-    forecast_train = Manager().Queue()
-    processes = []
+from training import create_training_samples
 
-    for w in range(num_processes):
-        p = Process(target=create_training_samples(eval_train, forecast_train))
-        processes.append(p)
-        p.start()
-
-    for p in processes:
-        p.join()
-
-    return eval_train, forecast_train
+os.system("taskset -p 0xff %d" % os.getpid())
+def results(result):
+    global et, ft
+    et.append(result[0])
+    ft.append(result[1])
 
 
 if __name__ == '__main__':
-    for episode in range(50):
+    os.environ["OPENBLAS_MAIN_FREE"] = "1"
+    # pool = Pool(cpu_count())
+    for episode in tqdm(range(1)):
         tack = time.time()
-        pool = Pool(processes=cpu_count())
-        m = Manager()
-        eval_train = m.Queue()
-        forecast_train = m.Queue()
-        workers = pool.apply(create_training_samples, (eval_train, forecast_train))
+        # ft, et = [], []
+        workers = [Process(target=create_training_samples) for i in range(cpu_count())]
+        [w.start() for w in workers]
+        [w.join() for w in workers]
+        # for w in workers:
+        #     w.wait()
         tick = time.time()
-        print(tick-tack)
-        #stop until done!!!
-        ft, et = [], []
-        while not forecast_train.empty():
-            ft.append(forecast_train.get())
-        while not eval_train.empty():
-            et.append(eval_train.get())
-        training_step(et, ft)
-
-        soc = plot_test()
+        # et = np.vstack(et)
+        # ft = np.vstack(ft)
+        tqdm.write(f"Data gathering phase took {int(tick-tack)} seconds.")
+        # tack = time.time()
+        # training_step(et, ft)
+        # tick = time.time()
+        # tqdm.write(f"Training phase took {int(tick-tack)} seconds.")
+        # soc = plot_test()
 
 
 

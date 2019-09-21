@@ -1,16 +1,18 @@
-from collections import deque
+import time
+import time
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
+
 from ems_env import ems
 from mcts import UCT_search, StateNode
 from networks import evaluator, forecaster
 
-
-EPISODES = 1
+EPISODES = 5
 PRINT_EVERY_X_ITER = 10
-EPISODE_LENGTH = 96
+EPISODE_LENGTH = 48
 SEARCH_DEPTH = 10
 
 def prepare_eval_train(eval_train, evaluator_network):
@@ -46,7 +48,7 @@ def plot_test(LOGFILE=True, PLOT=False):
     log, soc = [], []
     cum_r = 0
     for i in range(960):
-        action, root = UCT_search(StateNode(state, env.time), SEARCH_DEPTH, evaluator=evaluator_network, forecaster=forecast_network, use_dirichlet=False)
+        action, root = UCT_search(StateNode(state, test_env.time), SEARCH_DEPTH, evaluator=evaluator_network, forecaster=forecast_network, use_dirichlet=False)
         state, r, done, _ = test_env.step(action)
         log.append([action, state[4], state[5], r])
         soc.append(state[4])
@@ -61,8 +63,8 @@ def plot_test(LOGFILE=True, PLOT=False):
         xls.to_excel("results_log_AlphaZero.xls")
     return soc
 
-# if __name__ == "__main__":
-def create_training_samples(eval_train, forecast_train):
+def create_training_samples():
+    eval_train, forecast_train = [], []
     forecast_network = forecaster.forecast_net()
     evaluator_network = evaluator.evaluator_net()
     env = ems(EPISODE_LENGTH)
@@ -74,9 +76,12 @@ def create_training_samples(eval_train, forecast_train):
         while not done:
             action, UCT_node = UCT_search(StateNode(state, env.time), SEARCH_DEPTH, evaluator=evaluator_network, forecaster=forecast_network)
             next_state, reward, done, info = env.step(action)
-            eval_train.put([state, reward, UCT_node.child_number_visits])
-            forecast_train.put([state, next_state])
+            eval_train.append([state, reward, UCT_node.child_number_visits])
+            forecast_train.append([state, next_state])
             state = next_state
+    np.save(f"training_sets/forecast{int(time.time())}.npy", forecast_train)
+    np.save(f"training_sets/eval{int(time.time())}.npy", eval_train)
+    # return [eval_train, forecast_train]
 
 def training_step(eval_train, forecast_train):
     forecast_network = forecaster.forecast_net()
@@ -85,7 +90,7 @@ def training_step(eval_train, forecast_train):
     evaluator_network.load_weights("./networks/evaluator_weights.h5")
     eval_x_train, eval_y_train = prepare_eval_train(eval_train, evaluator_network)
     forec_x_train, forec_y_train = prepare_forecast_train(forecast_train)
-    evaluator_network.fit(eval_x_train, eval_y_train, epochs=100, verbose=1)
-    forecast_network.fit(forec_x_train, forec_y_train, epochs=10, verbose=1)
+    evaluator_network.fit(eval_x_train, eval_y_train, epochs=100, verbose=0)
+    forecast_network.fit(forec_x_train, forec_y_train, epochs=10, verbose=0)
     forecast_network.save_weights("./networks/forecast_weights.h5")
     evaluator_network.save_weights("./networks/evaluator_weights.h5")
