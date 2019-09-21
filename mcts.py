@@ -1,9 +1,10 @@
 import collections
 import math
+
 import numpy as np
 
 
-class UCTNode():
+class UCTNode:
     def __init__(self, state, move, parent=None, action_size=3):
         self.state = state
         self.move = move
@@ -65,12 +66,14 @@ class UCTNode():
             current.total_value += value_estimate
             current = current.parent
 
-def calc_direchlet(child_priors, use_dirichlet, dir_x=0.75, dir_alpha=1):
+
+def calc_dirichlet(child_priors, use_dirichlet, dir_x=0.75, dir_alpha=1):
     if use_dirichlet:
         priors = dir_x * child_priors[0] + (1 - dir_x) * np.random.dirichlet([dir_alpha * child_priors[0]])
         return priors
     else:
         return child_priors[0]
+
 
 class DummyNode(object):
     def __init__(self):
@@ -79,15 +82,17 @@ class DummyNode(object):
         self.child_number_visits = collections.defaultdict(float)
         self.value_estimates = np.zeros([3])
 
-def UCT_search(state, num_reads, evaluator=None, forecaster=None, use_dirichlet=False):
+
+def uct_search(state, num_reads, evaluator=None, forecaster=None, use_dirichlet=False):
     root = UCTNode(state, move=(0, 0), parent=DummyNode())
     for _ in range(num_reads):
         leaf = root.select_leaf(forecaster)
         child_priors, value_estimate = evaluator.predict(np.expand_dims(leaf.state.state[4:], axis=0))
         leaf.value_estimates = value_estimate[0]
-        leaf.expand(calc_direchlet(child_priors, use_dirichlet))
+        leaf.expand(calc_dirichlet(child_priors, use_dirichlet))
         leaf.backup(leaf.parent.value_estimates[leaf.move[0]])
     return np.argmax(root.child_number_visits), root
+
 
 def calc_time_waves(time):
     sin_day = np.sin(2*np.pi*time/(24*4))
@@ -96,7 +101,8 @@ def calc_time_waves(time):
     cos_year = np.cos(2*np.pi*time/(24*4*365))
     return np.array([sin_day, cos_day, sin_year, cos_year])
 
-class StateNode():
+
+class StateNode:
     def __init__(self, state, time, max_c = 25):
         self.state = state
         self.time = time

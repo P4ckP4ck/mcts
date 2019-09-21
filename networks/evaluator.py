@@ -15,13 +15,15 @@ def evaluator_net(obs=2, actions=3):
     out1 = Dense(actions, activation="linear", name="value_head")(x_val)
 
     m = Model(inp, [out0, out1])
-    m.compile(optimizer = SGD(0.0001, momentum = 0.9), loss={"actor_head": "categorical_crossentropy", "value_head": _huber_loss})
+    m.compile(optimizer=SGD(0.0001, momentum=0.9),
+              loss={"actor_head": "categorical_crossentropy", "value_head": _huber_loss})
     return m
 
+
 def _huber_loss(y_true, y_pred, clip_delta=1.0):
-    ### source: keon.io ###
+    # source: keon.io #
     error = y_true - y_pred
-    cond  = K.abs(error) <= clip_delta
+    cond = K.abs(error) <= clip_delta
 
     squared_loss = 0.5 * K.square(error)
     quadratic_loss = 0.5 * K.square(clip_delta) + clip_delta * (K.abs(error) - clip_delta)
