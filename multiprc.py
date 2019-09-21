@@ -32,7 +32,6 @@ def data_gathering_task(pool):
 if __name__ == '__main__':
     os.environ["OPENBLAS_MAIN_FREE"] = "1"
     pool = Pool(cpu_count())
-    loss = "loss"
     eval_result = None
     for episode in range(EPISODES):
         eval_train, forecast_train = [], []

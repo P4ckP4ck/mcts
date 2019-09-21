@@ -45,7 +45,9 @@ class UCTNode:
         current = self
         while current.is_expanded:
             best_move = current.best_child()
-            prob = np.random.choice(range(11), p = forecaster.predict(np.expand_dims(calc_time_waves(current.state.time), axis=0))[0])
+            prob = np.random.choice(range(11),
+                                    p=forecaster.predict(np.expand_dims(calc_time_waves(current.state.time),
+                                                                        axis=0))[0])
             current = current.maybe_add_child((best_move, prob))
         return current
 
@@ -54,7 +56,7 @@ class UCTNode:
         self.child_priors = child_priors
 
     def maybe_add_child(self, move):
-        if move not in self.children :
+        if move not in self.children:
             self.children[move] = UCTNode(
                 self.state.play(move), move, parent=self)
         return self.children[move]
@@ -95,15 +97,15 @@ def uct_search(state, num_reads, evaluator=None, forecaster=None, use_dirichlet=
 
 
 def calc_time_waves(time):
-    sin_day = np.sin(2*np.pi*time/(24*4))
-    cos_day = np.cos(2*np.pi*time/(24*4))
-    sin_year = np.sin(2*np.pi*time/(24*4*365))
-    cos_year = np.cos(2*np.pi*time/(24*4*365))
+    sin_day = np.sin(2 * np.pi * time / (24 * 4))
+    cos_day = np.cos(2 * np.pi * time / (24 * 4))
+    sin_year = np.sin(2 * np.pi * time / (24 * 4 * 365))
+    cos_year = np.cos(2 * np.pi * time / (24 * 4 * 365))
     return np.array([sin_day, cos_day, sin_year, cos_year])
 
 
 class StateNode:
-    def __init__(self, state, time, max_c = 25):
+    def __init__(self, state, time, max_c=25):
         self.state = state
         self.time = time
         self.max_c = max_c
@@ -112,7 +114,7 @@ class StateNode:
         time = self.time + 1
         action = move[0]
         state_transition = move[1]
-        next_residual = (state_transition - 5)/10
+        next_residual = (state_transition - 5) / 10
         if action == 0:
             state_of_charge = self.state[4]
         elif action == 1:
@@ -121,9 +123,12 @@ class StateNode:
             state_of_charge = (self.state[4] * self.max_c - abs(self.state[5]) * 0.9) / self.max_c
         else:
             raise LookupError("Performed action not found!")
-        if state_of_charge < 0: state_of_charge = 0
-        if state_of_charge > 1: state_of_charge = 1
+
+        if state_of_charge < 0:
+            state_of_charge = 0
+        if state_of_charge > 1:
+            state_of_charge = 1
+
         time_waves = calc_time_waves(time)
         state = np.hstack([time_waves, state_of_charge, next_residual])
         return StateNode(state, time)
-

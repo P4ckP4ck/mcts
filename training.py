@@ -78,17 +78,18 @@ def create_training_samples():
     state = env.reset()
     done = False
     while not done:
-        action, UCT_node = uct_search(StateNode(state, env.time), SEARCH_DEPTH,
+        action, uct_node = uct_search(StateNode(state, env.time), SEARCH_DEPTH,
                                       evaluator=evaluator_network,
                                       forecaster=forecast_network)
         next_state, reward, done, info = env.step(action)
-        eval_train.append([state, reward, UCT_node.child_number_visits])
+        eval_train.append([state, reward, uct_node.child_number_visits])
         forecast_train.append([state, next_state])
         state = next_state
     return [eval_train, forecast_train]
 
 
 def training_step(eval_train, forecast_train):
+    loss = "loss"
     tack = time.time()
     forecast_network = forecaster.forecast_net()
     evaluator_network = evaluator.evaluator_net()
