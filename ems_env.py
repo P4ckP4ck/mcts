@@ -4,15 +4,11 @@ Created on Thu May  2 12:13:59 2019
 
 @author: patri
 """
-
-
 from collections import deque
-
 import gym
 import numpy as np
 import pandas as pd
 from gym import spaces
-
 from model.VPPEnergyStorage import VPPEnergyStorage
 from model.VPPHousehold import VPPHousehold
 from model.VPPPhotovoltaic import VPPPhotovoltaic
