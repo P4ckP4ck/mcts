@@ -10,7 +10,6 @@ from networks import evaluator, forecaster
 
 EPISODE_LENGTH = 480
 SEARCH_DEPTH = 50
-high_score = 453
 
 
 def prepare_eval_train(eval_train, evaluator_network):
@@ -37,7 +36,7 @@ def prepare_forecast_train(forecast_train):
     return x, y
 
 
-def evaluate_current_iteration(LOGFILE=False, PLOT=False):
+def evaluate_current_iteration(high_score, LOGFILE=False, PLOT=False):
     forecast_network = forecaster.forecast_net()
     evaluator_network = evaluator.evaluator_net()
     forecast_network.load_weights("./networks/forecast_weights.h5")
@@ -47,25 +46,31 @@ def evaluate_current_iteration(LOGFILE=False, PLOT=False):
     test_env.time = 20000
     log, soc = [], []
     cum_r = 0
+
     for i in range(960):
         action, root = uct_search(StateNode(state, test_env.time), SEARCH_DEPTH, evaluator=evaluator_network, forecaster=forecast_network, use_dirichlet=False)
         state, r, done, _ = test_env.step(action)
         log.append([action, state[4], state[5], r])
         soc.append(state[4])
         cum_r += r
+
     if cum_r > high_score:
         print(f"\n\n--=== New highscore achieved: {cum_r}! ===--\n\n")
         forecast_network.save_weights("./networks/best_forecast_weights.h5")
         evaluator_network.save_weights("./networks/best_evaluator_weights.h5")
         high_score = cum_r
+    else:
+        print(f"No new highscore, current performance: {cum_r}!")
+
     if PLOT:
         pd.DataFrame(soc).plot()
         plt.show(block=True)
         plt.close()
+
     if LOGFILE:
         xls = pd.DataFrame(log)
         xls.to_excel("results_log_AlphaZero.xls")
-    return soc
+    return high_score
 
 
 def create_training_samples():
@@ -88,7 +93,7 @@ def create_training_samples():
     return [eval_train, forecast_train]
 
 
-def training_step(eval_train, forecast_train):
+def training_phase(eval_train, forecast_train):
     loss = "loss"
     tack = time.time()
     forecast_network = forecaster.forecast_net()
