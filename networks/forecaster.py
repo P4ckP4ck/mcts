@@ -8,7 +8,7 @@ atoms = 11
 
 
 def forecast_net(ATOMS=atoms):
-    inp = Input((4,))
+    inp = Input((6,))
     x = Dense(24, activation='relu')(inp)
     x = Dense(24, activation='relu')(x)
     x = Dense(24, activation='relu')(x)

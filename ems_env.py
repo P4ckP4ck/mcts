@@ -53,7 +53,7 @@ class ems(gym.Env):
     def __init__(self, EP_LEN):
         super(ems, self).__init__()
         self.EP_LEN = EP_LEN
-        self.obs = 6
+        self.obs = 8
         self.offset = 24 * 4 * 7 * 13
         self.observation_space = spaces.Box(low=0, high=1, shape = (self.obs,), dtype=np.float32)
         self.action_space = spaces.Discrete(3)
@@ -154,9 +154,11 @@ class ems(gym.Env):
     def calc_time_waves(self):
         sin_day = np.sin(2*np.pi*self.time/(24*4))
         cos_day = np.cos(2*np.pi*self.time/(24*4))
+        sin_week = np.sin(2 * np.pi * self.time / (24 * 4 * 7))
+        cos_week = np.cos(2 * np.pi * self.time / (24 * 4 * 7))
         sin_year = np.sin(2*np.pi*self.time/(24*4*365))
         cos_year = np.cos(2*np.pi*self.time/(24*4*365))
-        return sin_day, cos_day, sin_year, cos_year
+        return sin_day, cos_day, sin_week, cos_week, sin_year, cos_year
 
     def step(self, action):
         """
@@ -194,7 +196,8 @@ class ems(gym.Env):
         """
         r, is_valid_action = -1, False
         # Action 0: Nichts
-        if action == 0: r, is_valid_action = 0, True
+        if action == 0:
+            r, is_valid_action = 0, True
         # Action 1: Laden
         if action == 1 and self.residual < 0:
             r = 1#abs(self.residual)*100
@@ -204,10 +207,12 @@ class ems(gym.Env):
             r = 1#abs(self.residual)*100
             is_valid_action = self.el_storage.discharge(abs(self.residual), 15, self.time)
         # Fehler- und Rewardüberprüfung
-        if not is_valid_action: r = -1
+        if not is_valid_action:
+            r = -1
         # Bereite den nächsten state vor
         self.residual = self.loadprofile.valueForTimestamp(self.time) - self.pv.valueForTimestamp(self.time)*10
-        if self.pv.valueForTimestamp(self.time) > self.max_pv: self.max_pv = self.pv.valueForTimestamp(self.time)
+        if self.pv.valueForTimestamp(self.time) > self.max_pv:
+            self.max_pv = self.pv.valueForTimestamp(self.time)
         state = np.hstack([self.calc_time_waves(), self.el_storage.stateOfCharge/self.el_storage.capacity, self.residual])
         self.time += 1
         done = self.time >= self.rand_start + self.EP_LEN
