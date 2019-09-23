@@ -5,13 +5,18 @@ This file contains the basic functionalities of the VPPCombinedHeatAndPower clas
 
 """
 
-from .VPPComponent import VPPComponent
 import traceback
+
 import pandas as pd
+
+from .VPPComponent import VPPComponent
+
 
 class VPPCombinedHeatAndPower(VPPComponent):
 
-    def __init__(self,environment, timebase, identifier, userProfile, nominalPowerEl, nominalPowerTh, rampUpTime, rampDownTime, minimumRunningTime, minimumStopTime):
+    def __init__(self,environment, timebase, identifier, userProfile, 
+                 nominalPowerEl, nominalPowerTh, overall_efficiency,
+                 rampUpTime, rampDownTime, minimumRunningTime, minimumStopTime):
         
         """
         Info
@@ -58,6 +63,7 @@ class VPPCombinedHeatAndPower(VPPComponent):
         self.identifier = identifier
         self.nominalPowerEl = nominalPowerEl
         self.nominalPowerTh = nominalPowerTh
+        self.overall_efficiency = overall_efficiency
         self.rampUpTime = rampUpTime
         self.rampDownTime = rampDownTime
         self.minimumRunningTime = minimumRunningTime

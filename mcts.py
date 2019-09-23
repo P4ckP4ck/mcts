@@ -1,5 +1,6 @@
 import collections
 import math
+from copy import deepcopy
 
 import numpy as np
 
@@ -17,19 +18,19 @@ class UCTNode:
 
     @property
     def number_visits(self):
-        return self.parent.child_number_visits[self.move[0]]
+        return self.parent.child_number_visits[self.move]
 
     @number_visits.setter
     def number_visits(self, value):
-        self.parent.child_number_visits[self.move[0]] = value
+        self.parent.child_number_visits[self.move] = value
 
     @property
     def total_value(self):
-        return self.parent.child_total_value[self.move[0]]
+        return self.parent.child_total_value[self.move]
 
     @total_value.setter
     def total_value(self, value):
-        self.parent.child_total_value[self.move[0]] = value
+        self.parent.child_total_value[self.move] = value
 
     def child_Q(self):
         return self.child_total_value / (1 + self.child_number_visits)
@@ -45,10 +46,10 @@ class UCTNode:
         current = self
         while current.is_expanded:
             best_move = current.best_child()
-            prob = np.random.choice(range(11), p=forecast[current.state.time])
-                                    #p=forecaster.predict(np.expand_dims(calc_time_waves(current.state.time),
-                                    #                                    axis=0))[0])
-            current = current.maybe_add_child((best_move, prob))
+            # prob = np.random.choice(range(11), p=forecast[current.state.time])
+            #                         #p=forecaster.predict(np.expand_dims(calc_time_waves(current.state.time),
+            #                         #                                    axis=0))[0])
+            current = current.maybe_add_child(best_move)# , prob))
         return current
 
     def expand(self, child_priors):
@@ -86,13 +87,13 @@ class DummyNode(object):
 
 
 def uct_search(state, num_reads, forecast_timeseries, evaluator_network=None, use_dirichlet=False):
-    root = UCTNode(state, move=(0, 0), parent=DummyNode())
+    root = UCTNode(state, move=0, parent=DummyNode())
     for _ in range(num_reads):
         leaf = root.select_leaf(forecast_timeseries)
-        child_priors, value_estimate = evaluator_network.predict(np.expand_dims(leaf.state.state[6:], axis=0))
+        child_priors, value_estimate = evaluator_network.predict(np.expand_dims(leaf.state.state, axis=0))
         leaf.value_estimates = value_estimate[0]
         leaf.expand(calc_dirichlet(child_priors, use_dirichlet))
-        leaf.backup(leaf.parent.value_estimates[leaf.move[0]])
+        leaf.backup(leaf.parent.value_estimates[leaf.move])
     return np.argmax(root.child_number_visits), root
 
 
@@ -107,30 +108,50 @@ def calc_time_waves(env_time):
 
 
 class StateNode:
-    def __init__(self, state, env_time, max_c=25):
+    def __init__(self, state, env, max_c=25):
         self.state = state
-        self.time = env_time
+        self.time = env.time
         self.max_c = max_c
+        self.env = deepcopy(env)
 
     def play(self, move):
-        env_time = self.time + 1
-        action = move[0]
-        state_transition = move[1]
-        next_residual = (state_transition - 5) / 10
-        if action == 0:
-            state_of_charge = self.state[4]
-        elif action == 1:
-            state_of_charge = (self.state[4] * self.max_c + abs(self.state[5]) * 0.9) / self.max_c
-        elif action == 2:
-            state_of_charge = (self.state[4] * self.max_c - abs(self.state[5]) * 0.9) / self.max_c
-        else:
-            raise LookupError("Performed action not found!")
+        state, reward, done, info = self.env.step(move)
+        # env_time = self.time + 1
+        # action = move[0]
+        # state_transition = move[1]
+        # next_residual = (state_transition - 5) / 10
+        # if action == 0:
+        #     state_of_charge = self.state[4]
+        # elif action == 1:
+        #     state_of_charge = (self.state[4] * self.max_c + abs(self.state[5]) * 0.9) / self.max_c
+        # elif action == 2:
+        #     state_of_charge = (self.state[4] * self.max_c - abs(self.state[5]) * 0.9) / self.max_c
+        # else:
+        #     raise LookupError("Performed action not found!")
+        #
+        # if state_of_charge < 0:
+        #     state_of_charge = 0
+        # if state_of_charge > 1:
+        #     state_of_charge = 1
 
-        if state_of_charge < 0:
-            state_of_charge = 0
-        if state_of_charge > 1:
-            state_of_charge = 1
+        # time_waves = calc_time_waves(env_time)
+        # state = np.hstack([time_waves, state_of_charge, next_residual])
+        return StateNode(state, self.env)
 
-        time_waves = calc_time_waves(env_time)
-        state = np.hstack([time_waves, state_of_charge, next_residual])
-        return StateNode(state, env_time)
+if __name__ == "__main__":
+    from complex_ems import ComplexEMS as ems
+    from networks import evaluator
+    eval_train, forecast_train = [], []
+    evaluator_network = evaluator.evaluator_net()
+    try:
+        evaluator_network.load_weights("./networks/evaluator_weights.h5")
+    except:
+        pass
+    env = ems(12)
+    state = env.reset()
+    done = False
+    # state = StateNode(state, env)
+    use_dirichlet=False
+    forecast_timeseries = []
+    action, uct_node = uct_search(StateNode(state, env), 50,
+                                      [], evaluator_network=evaluator_network)

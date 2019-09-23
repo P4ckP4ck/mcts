@@ -39,10 +39,10 @@ def data_gathering_phase(p):
         forecast_network.load_weights("./networks/forecast_weights.h5")
     except:
         print("No weights loaded")
-    forecast_timeseries = prepare_forecast_timeseries(forecast_network)
+    forecast_timeseries = []# prepare_forecast_timeseries(forecast_network)
     tack = time.time()
     workers = [p.apply_async(create_training_samples, args=(forecast_timeseries, ),
-                             callback=results) for i in range(cpu_count())]
+                             callback=results) for _ in range(cpu_count())]
     [w.wait() for w in workers]
     tick = time.time()
     print(f"Data gathering phase took {int(tick-tack)} seconds.")

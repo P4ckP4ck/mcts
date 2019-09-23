@@ -11,10 +11,12 @@ TODO: Setup data type for target data and alter the referencing accordingly!
 
 """
 
-import traceback
 import math
-import pandas as pd
+import traceback
+
 import pandapower as pp
+import pandas as pd
+
 
 class VPPOperator(object):
 

@@ -4,17 +4,17 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from ems_env import ems
+from complex_ems import ComplexEMS as ems
 from mcts import uct_search, StateNode
 from networks import evaluator, forecaster
 
 EPISODE_LENGTH = 480
-SEARCH_DEPTH = 25
+SEARCH_DEPTH = 50
 
 
 def prepare_eval_train(eval_train, evaluator_network):
     eval_train = np.array(eval_train)
-    states = np.stack(eval_train[:, 0])[:, 6:]
+    states = np.stack(eval_train[:, 0])
     actions = np.argmax(np.stack(eval_train[:, 2]), axis=1)
     rewards = np.stack(eval_train[:, 1])
     x = states
@@ -45,10 +45,10 @@ def evaluate_current_iteration(high_score, forecast, LOGFILE=False, PLOT=False):
     log, soc = [], []
     cum_r = 0
     for i in range(960):
-        action, root = uct_search(StateNode(state, test_env.time), SEARCH_DEPTH, forecast, evaluator_network=evaluator_network, use_dirichlet=False)
+        action, root = uct_search(StateNode(state, test_env), SEARCH_DEPTH, forecast, evaluator_network=evaluator_network, use_dirichlet=False)
         state, r, done, _ = test_env.step(action)
-        log.append([action, state[4], state[5], r])
-        soc.append(state[4])
+        log.append([action, state[0], state[1], state[2], r])
+        soc.append(state[0])
         cum_r += r
 
     if cum_r > high_score:
@@ -73,12 +73,15 @@ def evaluate_current_iteration(high_score, forecast, LOGFILE=False, PLOT=False):
 def create_training_samples(forecast_timeseries):
     eval_train, forecast_train = [], []
     evaluator_network = evaluator.evaluator_net()
-    evaluator_network.load_weights("./networks/evaluator_weights.h5")
+    try:
+        evaluator_network.load_weights("./networks/evaluator_weights.h5")
+    except:
+        pass
     env = ems(EPISODE_LENGTH)
     state = env.reset()
     done = False
     while not done:
-        action, uct_node = uct_search(StateNode(state, env.time), SEARCH_DEPTH,
+        action, uct_node = uct_search(StateNode(state, env), SEARCH_DEPTH,
                                       forecast_timeseries, evaluator_network=evaluator_network)
         next_state, reward, done, info = env.step(action)
         eval_train.append([state, reward, uct_node.child_number_visits])
@@ -87,7 +90,7 @@ def create_training_samples(forecast_timeseries):
     return [eval_train, forecast_train]
 
 
-def training_phase(eval_train, forecast_train):
+def training_phase(eval_train):
     loss = "loss"
     tack = time.time()
     forecast_network = forecaster.forecast_net()
@@ -95,17 +98,19 @@ def training_phase(eval_train, forecast_train):
     try:
         forecast_network.load_weights("./networks/forecast_weights.h5")
     except:
-        print("No weights loaded")
-    evaluator_network.load_weights("./networks/evaluator_weights.h5")
+        print("No forecast weights loaded")
+    try:
+        evaluator_network.load_weights("./networks/evaluator_weights.h5")
+    except:
+        pass
     eval_x_train, eval_y_train = prepare_eval_train(eval_train, evaluator_network)
-    forecast_x_train, forecast_y_train = prepare_forecast_train(forecast_train)
     eval_hist = evaluator_network.fit(eval_x_train, eval_y_train, epochs=250, verbose=0)
-    forecast_hist = forecast_network.fit(forecast_x_train, forecast_y_train, epochs=10, verbose=0)
-    forecast_network.save_weights("./networks/forecast_weights.h5")
     evaluator_network.save_weights("./networks/evaluator_weights.h5")
     tick = time.time()
 
     print(f"Training phase took {int(tick-tack)} seconds."
-          f"\nEvaluation Loss: {np.round(eval_hist.history[loss][-1], 4)}"
-          f"\nForecast Loss: {np.round(forecast_hist.history[loss][-1], 4)}")
-    return eval_hist, forecast_hist
+          f"\nEvaluation Loss: {np.round(eval_hist.history[loss][-1], 4)}")
+    return eval_hist
+
+if __name__ == "__main__":
+    a = create_training_samples([])

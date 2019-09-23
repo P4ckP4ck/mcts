@@ -5,14 +5,15 @@ This file contains the basic functionalities of the VPPWind class.
 
 """
 
-from .VPPComponent import VPPComponent
-
-import pandas as pd
 import traceback
 
+import pandas as pd
 # windpowerlib imports
 from windpowerlib import ModelChain
 from windpowerlib import WindTurbine
+
+from .VPPComponent import VPPComponent
+
 
 class VPPWind(VPPComponent):
 
@@ -169,7 +170,7 @@ class VPPWind(VPPComponent):
         # if you want to use the power coefficient curve change the value of
         # 'fetch_curve' to 'power_coefficient_curve'
         wind_turbine = {
-            'name': self.turbine_type, # turbine type as in register #
+            'turbine_type': self.turbine_type, # turbine type as in register #
             'hub_height': self.hub_height, # in m
             'rotor_diameter': self.rotor_diameter, # in m
             'fetch_curve': self.fetch_curve,  # fetch power curve #

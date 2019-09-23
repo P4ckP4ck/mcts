@@ -4,13 +4,12 @@ Created on Thu Aug 22 15:33:53 2019
 
 @author: patri
 """
-from model.VPPUserProfile import VPPUserProfile as UP
-from model.VPPThermalEnergyStorage import VPPThermalEnergyStorage
-from model.VPPHeatPump import VPPHeatPump
 import matplotlib.pyplot as plt
 import pandas as pd
-from tqdm import tqdm 
 
+from model.VPPHeatPump import VPPHeatPump
+from model.VPPThermalEnergyStorage import VPPThermalEnergyStorage
+from model.VPPUserProfile import VPPUserProfile as UP
 
 start = '2017-01-01 00:00:00'
 end = '2017-12-31 23:45:00'
@@ -33,7 +32,7 @@ minimumStopTime = 2 #timesteps
 timebase = 15
 
 
-up = UP(heat_sys_temp = target_temperature, #Das könnte problematisch werden
+up = UP(heat_sys_temp = target_temperature,
         yearly_heat_demand = yearly_heat_demand, full_load_hours = 2100)
 
 tes = VPPThermalEnergyStorage(timebase, mass = mass_of_storage, 
