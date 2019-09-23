@@ -5,10 +5,8 @@ This file contains the basic functionalities of the VPPEnergyStorage class.
 
 """
 
-import numpy as np
-
 from .VPPComponent import VPPComponent
-
+import numpy as np
 
 class VPPEnergyStorage(VPPComponent):
 
@@ -140,13 +138,15 @@ class VPPEnergyStorage(VPPComponent):
 
         # Update state of charge
         self.stateOfCharge += energy * self.chargeEfficiency
-        
+        if self.stateOfCharge > self.capacity:
+            self.stateOfCharge = self.capacity
+            is_viable = False
         
         # Check if data already exists
-        if self.timeseries[timestamp] == None:
-            self.append(energy)
-        else:
-            self.timeseries[timestamp] = energy
+#        if self.timeseries[timestamp] == None:
+#            self.append(energy)
+#        else:
+#            self.timeseries[timestamp] = energy
         return is_viable
 
     def discharge(self, energy, timebase, timestamp):
@@ -199,13 +199,16 @@ class VPPEnergyStorage(VPPComponent):
 
         # Update state of charge
         self.stateOfCharge -= energy * (1 / self.dischargeEfficiency)
+        if self.stateOfCharge < 0:
+            self.stateOfCharge = 0
+            is_viable = False
         
         
         # Check if data already exists
-        if self.timeseries[timestamp] == None:
-            self.append(energy)
-        else:
-            self.timeseries[timestamp] = energy
+#        if self.timeseries[timestamp] == None:
+#            self.append(energy)
+#        else:
+#            self.timeseries[timestamp] = energy
         return is_viable
 
 
