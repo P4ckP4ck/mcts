@@ -15,7 +15,7 @@ class ComplexEMS:
     def __init__(self, ep_len=96):
         super(ComplexEMS, self).__init__()
         # gym declarations
-        self.obs = 3
+        self.obs = 4
         self.ep_len = ep_len
 
         # operational variables
@@ -250,7 +250,7 @@ class ComplexEMS:
         # th_storage temp = 55 - 65 °C
 
         done = self.time >= self.rand_start + self.ep_len
-        state = np.array([current_residual/26, (thermal_storage-55)/10, bev_at_home])
+        state = np.array([current_residual/26, (thermal_storage-55)/10, bev_at_home, bev_battery])
         self.time += 1
         return state, reward, done, self.time
 
@@ -271,7 +271,7 @@ class ComplexEMS:
         else:
             heat_production = 0
         temp = self.th_storage.operate_storage_reinforcement(heat_demand, heat_production)
-        return temp, ~feedback
+        return temp, not feedback
 
 def time_func(func, rounds=10000):
     tack = time.time()
@@ -281,7 +281,7 @@ def time_func(func, rounds=10000):
     print(tick-tack)
 
 def x():
-    return self.temperature.iat[10,0]
+    return self.temperature.iat[10, 0]
 
 if __name__ == "__main__":
     env = ComplexEMS()

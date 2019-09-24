@@ -5,7 +5,7 @@ from keras.models import Model
 from keras.optimizers import SGD
 
 
-def evaluator_net(obs=3, actions=3):
+def evaluator_net(obs=4, actions=3):
     inp = Input((obs,))
     x = Dense(24, activation='relu')(inp)
     # x = Dense(24, activation='relu')(x)

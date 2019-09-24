@@ -8,8 +8,8 @@ from complex_ems import ComplexEMS as ems
 from mcts import uct_search, StateNode
 from networks import evaluator, forecaster
 
-EPISODE_LENGTH = 480
-SEARCH_DEPTH = 50
+EPISODE_LENGTH = 240
+SEARCH_DEPTH = 20
 
 
 def prepare_eval_train(eval_train, evaluator_network):
@@ -44,10 +44,10 @@ def evaluate_current_iteration(high_score, forecast, LOGFILE=False, PLOT=False):
     test_env.time = 20000
     log, soc = [], []
     cum_r = 0
-    for i in range(960):
+    for i in range(96):
         action, root = uct_search(StateNode(state, test_env), SEARCH_DEPTH, forecast, evaluator_network=evaluator_network, use_dirichlet=False)
         state, r, done, _ = test_env.step(action)
-        log.append([action, state[0], state[1], state[2], r])
+        log.append([action, state[0], state[1], state[2], state[3], r])
         soc.append(state[0])
         cum_r += r
 
