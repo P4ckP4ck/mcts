@@ -839,12 +839,14 @@ class VPPHeatPump(VPPComponent):
         if type(timestamp) == int:
             if timestamp - self.lastRampDown > self.minimumStopTime:
                 self.isRunning = True
-            else: self.isRunning = False
+            else:
+                self.isRunning = False
         
         elif type(timestamp) == pd._libs.tslibs.timestamps.Timestamp:
             if self.lastRampDown + self.minimumStopTime * timestamp.freq < timestamp:
                 self.isRunning = True
-            else: self.isRunning = False
+            else:
+                self.isRunning = False
             
         else:
             traceback.print_exc("timestamp needs to be of type int or pandas._libs.tslibs.timestamps.Timestamp")
@@ -917,7 +919,7 @@ class VPPHeatPump(VPPComponent):
         """
         Info
         ----
-        This function ramps down the combined heat and power plant. The timestamp is neccessary to calculate
+        This function ramps down the combined heat and power plant. The timestamp is necessary to calculate
         if the combined heat and power plant is running in later iterations of balancing. The possible
         return values are:
             - None:       Ramp down has no effect since the combined heat and power plant is not running

@@ -53,7 +53,7 @@ class VPPThermalEnergyStorage(object):
         self.environment = environment
         self.userProfile = userProfile
         self.target_temperature = target_temperature
-        self.current_temperature = target_temperature - hysteresis
+        self.current_temperature = target_temperature
         self.hysteresis = hysteresis
         self.mass = mass
         self.cp = cp

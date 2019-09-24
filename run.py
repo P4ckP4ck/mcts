@@ -1,3 +1,4 @@
+import ctypes
 import logging
 import os
 import time
@@ -14,9 +15,9 @@ os.environ['KMP_WARNINGS'] = 'off'
 logging.disable(logging.WARNING)
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
-EPISODES = 50
-PRINT_EVERY_X_ITER = 5
-HIGH_SCORE = 564
+EPISODES = 15
+PRINT_EVERY_X_ITER = 1
+HIGH_SCORE = 0
 
 
 def prepare_forecast_timeseries(forecast_network):
@@ -68,7 +69,8 @@ if __name__ == '__main__':
     for episode in range(EPISODES):
         eval_train, forecast_train = [], []
         forecast_timeseries = data_gathering_phase(pool)
-        eval_hist, forecast_hist = training_phase(eval_train, forecast_train)
+        eval_hist = training_phase(eval_train)
         if not (episode+1) % PRINT_EVERY_X_ITER:
             high_score, eval_result = evaluation_phase(high_score, eval_result, forecast_timeseries)
+        ctypes.CDLL('libc.so.6').malloc_trim(0)
 

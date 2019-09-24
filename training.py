@@ -4,12 +4,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from complex_ems import ComplexEMS as ems
+from complex_ems_lowmem import ComplexEMS as ems
 from mcts import uct_search, StateNode
 from networks import evaluator, forecaster
 
-EPISODE_LENGTH = 240
-SEARCH_DEPTH = 20
+EPISODES = 10
+EPISODE_LENGTH = 48
+SEARCH_DEPTH = 50
 
 
 def prepare_eval_train(eval_train, evaluator_network):
@@ -18,13 +19,13 @@ def prepare_eval_train(eval_train, evaluator_network):
     actions = np.argmax(np.stack(eval_train[:, 2]), axis=1)
     rewards = np.stack(eval_train[:, 1])
     x = states
-    # action_priors = pd.DataFrame(np.vstack(eval_df[2])/eval_df[2].sum()) #soft update version
+    action_priors = np.stack(eval_train[:, 2], axis=1)/np.sum(eval_train[:, 2][0], axis=0) #soft update version
     index = range(x.shape[0])
-    action_priors = np.zeros((x.shape[0], 3))
-    action_priors[index, actions] = 1
+    # action_priors = np.zeros((x.shape[0], 3))
+    # action_priors[index, actions] = 1
     values = evaluator_network.predict(x)[1]
     values[index, actions] = rewards
-    return x, [action_priors, values]
+    return x, [action_priors.T, values]
 
 
 def prepare_forecast_train(forecast_train):
@@ -45,7 +46,7 @@ def evaluate_current_iteration(high_score, forecast, LOGFILE=False, PLOT=False):
     log, soc = [], []
     cum_r = 0
     for i in range(96):
-        action, root = uct_search(StateNode(state, test_env), SEARCH_DEPTH, forecast, evaluator_network=evaluator_network, use_dirichlet=False)
+        action, root = uct_search(StateNode(state, test_env, test_env.vars), SEARCH_DEPTH, [], evaluator_network=evaluator_network, use_dirichlet=False)
         state, r, done, _ = test_env.step(action)
         log.append([action, state[0], state[1], state[2], state[3], r])
         soc.append(state[0])
@@ -78,15 +79,16 @@ def create_training_samples(forecast_timeseries):
     except:
         pass
     env = ems(EPISODE_LENGTH)
-    state = env.reset()
-    done = False
-    while not done:
-        action, uct_node = uct_search(StateNode(state, env), SEARCH_DEPTH,
-                                      forecast_timeseries, evaluator_network=evaluator_network)
-        next_state, reward, done, info = env.step(action)
-        eval_train.append([state, reward, uct_node.child_number_visits])
-        forecast_train.append([state, next_state])
-        state = next_state
+    for ep in range(EPISODES):
+        state = env.reset()
+        done = False
+        while not done:
+            action, uct_node = uct_search(StateNode(state, env, env.vars), SEARCH_DEPTH,
+                                          forecast_timeseries, evaluator_network=evaluator_network)
+            next_state, reward, done, info = env.step(action)
+            eval_train.append([state, reward, uct_node.child_number_visits])
+            forecast_train.append([state, next_state])
+            state = next_state
     return [eval_train, forecast_train]
 
 

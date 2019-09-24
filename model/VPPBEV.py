@@ -128,6 +128,58 @@ class VPPBEV(VPPComponent):
     # ===================================================================================
     # Controlling functions
     # ===================================================================================
+    def charge_forecast(self, at_home, charge_flag, battery_charge):
+        # battery_charge = self.battery_max #initial state of charge at the first timestep
+        # battery = 0
+        # charger = 0
+
+        if (at_home == 0) & (battery_charge > self.battery_min):
+            #if car is not at home discharge battery with X kW/h
+            battery_charge = battery_charge - self.battery_usage * self.timebase
+
+            if battery_charge < self.battery_min:
+                battery_charge = self.battery_min
+
+            battery = battery_charge
+            charger = 0 #if car is not at home, chargers energy consumption is 0
+
+        #Function to apply the load_degradation to the load profile
+        elif (at_home == 1) & (battery_charge > self.battery_max * self.load_degradiation_begin) & charge_flag:
+            degraded_charging_power = self.charging_power * (1 - (battery_charge / self.battery_max - self.load_degradiation_begin)/(1 - self.load_degradiation_begin))
+            battery_charge = battery_charge + (degraded_charging_power * self.chargeEfficiency * self.timebase)
+            charger = degraded_charging_power
+
+            if battery_charge > self.battery_max:
+                charger = self.charging_power - (battery_charge - self.battery_max)
+                battery_charge = self.battery_max
+
+            battery = battery_charge
+            charger = charger
+
+        #If car is at home, charge with charging power. If timescale is hours charging power results in kWh
+        elif (at_home == 1) & (battery_charge < self.battery_max) & charge_flag:
+            battery_charge = battery_charge + (self.charging_power * self.chargeEfficiency * self.timebase)
+            charger = self.charging_power
+
+            #If battery would be overcharged, charge only with kWh left
+            if battery_charge > self.battery_max & charge_flag:
+                charger = self.charging_power - (battery_charge - self.battery_max)
+                battery_charge = self.battery_max
+
+            battery = battery_charge
+            charger = charger
+
+        #If battery is full and car is at home,
+        #charger consumes no power and current state of charge of battery is returned
+        else:
+            battery = battery_charge
+            charger = 0
+
+        if battery_charge == self.battery_max:
+            charge_flag = 0
+
+        return battery, charger, charge_flag
+
     def charge_timestep(self, at_home, charge_flag):
         battery_charge = self.battery_max #initial state of charge at the first timestep
         battery = 0

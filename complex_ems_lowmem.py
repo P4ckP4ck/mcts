@@ -85,6 +85,7 @@ class ComplexEMS:
 
         pv = VPPPhotovoltaic(timebase=15, identifier=name, latitude=latitude, longitude=longitude, modules_per_string=5, strings_per_inverter=1)
         pv.prepareTimeSeries(weather_data)
+        pv.timeseries.fillna(0, inplace=True)
         return pv
 
     def init_el_storage(self):
@@ -132,6 +133,8 @@ class ComplexEMS:
         self.time = self.rand_start
         self.heatpump.lastRampUp = self.time
         self.heatpump.lastRampDown = self.time
+        self.vars = {"heatpump_flag": self.heatpump_flag, "store_temp": 0.5,
+                     "bev_battery": 0, "bev_charge_flag": self.bev_charge_flag, "time": self.time}
         return state
 
     def step(self, action):
@@ -232,30 +235,102 @@ class ComplexEMS:
         current_residual = current_demand - current_production
 
         # step 4: calculate validity and reward
-        self.production_per_tech = {"regular": current_residual, "PV": pv, "Wind": 0, "CHP": 0, "El_Store": electrical_storage_discharge}
+        self.production_per_tech = {"regular": current_residual, "PV": pv, "Wind": 0,
+                                    "CHP": 0, "El_Store": electrical_storage_discharge}
         if current_residual < 0:
-            self.production_per_tech = {"regular": 0, "PV": pv, "Wind": 0, "CHP": 0, "El_Store": electrical_storage_discharge}
+            self.production_per_tech = {"regular": 0, "PV": pv, "Wind": 0,
+                                        "CHP": 0, "El_Store": electrical_storage_discharge}
 
-        reward = -np.clip(self.calc_cost_current_mix()*4, 0, 1)
+        reward = 1-np.clip(self.calc_cost_current_mix()*4, 0, 1)
 
         if thermal_storage < 55 or thermal_storage > 65:
             bad_action = True
 
         if bad_action:
-            reward = -9
+            reward = -1
+
+        # step 5: calculate states
+        # normalizing factors:
+        # maximum expected residual load = heatpump + bev + el_loadprofile = 5kW + 11kW + ~10kW = 26 kW
+        # th_storage temp = 55 - 65 °C
+        self.vars = {"heatpump_flag": self.heatpump_flag, "store_temp": thermal_storage,
+                     "bev_battery": bev_battery, "bev_charge_flag": self.bev_charge_flag, "time": self.time}
+        done = self.time >= self.rand_start + self.ep_len
+        state = np.array([current_residual/26, (thermal_storage-55)/10, bev_at_home, bev_battery])
+        self.time += 1
+        return state, reward, done, self.vars
+
+    def step_forecast(self, action, vars):
+        # step 1: apply actions
+        time = vars["time"]
+        heatpump_action, bad_action = 0, False
+        if action == 1:
+            if vars["heatpump_flag"] == 0:
+                vars["heatpump_flag"] = 1
+            else:
+                vars["heatpump_flag"] = 0
+            heatpump_action = 1
+        if action == 2:
+            if vars["bev_charge_flag"] == 1:
+                bad_action = True
+            vars["bev_charge_flag"] = 1
+
+
+        # step 1: calculate all demands and productions
+        temperature = self.temperature.iat[time, 0]
+        el_loadprofile = self.el_loadprofile.iat[time]/1000
+        th_loadprofile = self.th_loadprofile.iat[time, 0]
+        heatpump = (self.heatpump.heatpump_power / self.heatpump.get_current_cop(temperature)) * self.heatpump_flag
+        bev_at_home = self.bev.at_home.iat[time, 0]
+        bev_battery, bev, vars["bev_charge_flag"] = self.bev.charge_forecast(bev_at_home, vars["bev_charge_flag"], vars["bev_battery"])
+        pv = self.pv.timeseries.iat[time, 0]*5
+        current_demand = el_loadprofile + heatpump + bev
+        current_production = pv
+        temp_residual = current_demand - current_demand
+
+        #step 2. calculate storage states
+        electrical_storage_charge, electrical_storage_discharge = 0, 0
+        thermal_storage, bad_action = self.forecast_th_storage(th_loadprofile, heatpump_action, vars)
+
+        if temp_residual < 0 and vars["El_Store"]/self.el_storage.capacity != 1:
+            electrical_storage_charge = np.clip(abs(temp_residual), 0, self.el_storage.maxPower)
+            self.el_storage.charge(electrical_storage_charge, 15, time)
+
+        if temp_residual > 0 and vars["El_Store"]/self.el_storage.capacity != 0:
+            electrical_storage_discharge = np.clip(temp_residual, 0, self.el_storage.maxPower)
+            self.el_storage.discharge(electrical_storage_discharge, 15, time)
+
+        # step 3: calculate residual load
+        current_demand += electrical_storage_charge
+        current_production += electrical_storage_discharge
+        current_residual = current_demand - current_production
+
+        # step 4: calculate validity and reward
+        self.production_per_tech = {"regular": current_residual, "PV": pv, "Wind": 0,
+                                    "CHP": 0, "El_Store": electrical_storage_discharge}
+        if current_residual < 0:
+            self.production_per_tech = {"regular": 0, "PV": pv, "Wind": 0,
+                                        "CHP": 0, "El_Store": electrical_storage_discharge}
+
+        reward = 1-np.clip(self.calc_cost_current_mix()*4, 0, 1)
+
+        if thermal_storage < 55 or thermal_storage > 65:
+            bad_action = True
+
+        if bad_action:
+            reward = -1
 
         # step 5: calculate states
         # normalizing factors:
         # maximum expected residual load = heatpump + bev + el_loadprofile = 5kW + 11kW + ~10kW = 26 kW
         # th_storage temp = 55 - 65 °C
 
-        done = self.time >= self.rand_start + self.ep_len
+        done = time >= self.rand_start + self.ep_len
         state = np.array([current_residual/26, (thermal_storage-55)/10, bev_at_home, bev_battery])
-        self.time += 1
-        return state, reward, done, self.time
-
-    def step_forecast(self):
-        pass
+        time += 1
+        vars = {"heatpump_flag": self.heatpump_flag, "store_temp": thermal_storage,
+                     "bev_battery": bev_battery, "bev_charge_flag": self.bev_charge_flag, "time": time}
+        return state, reward, done, vars
 
     def operate_th_storage(self, heat_demand, hp_action):
         feedback = True
@@ -266,6 +341,22 @@ class ComplexEMS:
                 feedback = self.heatpump.rampDown(self.time)
             if feedback is None:
                 feedback = True
+        if self.heatpump_flag:
+            heat_production = self.heatpump.heatpump_power
+        else:
+            heat_production = 0
+        temp = self.th_storage.operate_storage_reinforcement(heat_demand, heat_production)
+        return temp, not feedback
+
+    def forecast_th_storage(self, heat_demand, hp_action, vars):
+        feedback = True
+        # if hp_action:
+        #     if vars["heatpump_flag"]:
+        #         feedback = self.heatpump.rampUp(self.time)
+        #     else:
+        #         feedback = self.heatpump.rampDown(self.time)
+        #     if feedback is None:
+        #         feedback = True
         if self.heatpump_flag:
             heat_production = self.heatpump.heatpump_power
         else:

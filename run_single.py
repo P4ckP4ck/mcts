@@ -2,10 +2,10 @@ import gc
 import logging
 import os
 import time
+from collections import deque
 
 import numpy as np
 
-from collections import deque
 from mcts import calc_time_waves
 from networks import forecaster
 from training import create_training_samples, training_phase, evaluate_current_iteration
@@ -58,6 +58,7 @@ if __name__ == '__main__':
     high_score = HIGH_SCORE
     eval_result = ""
     eval_train_deque= deque(maxlen=5000)
+    import ctypes
     for episode in range(EPISODES):
         eval_train, forecast_train = [], []
         eval_train, forecast_timeseries = data_gathering_phase()
@@ -66,7 +67,4 @@ if __name__ == '__main__':
         if not (episode+1) % PRINT_EVERY_X_ITER:
             high_score = evaluation_phase(high_score, forecast_timeseries)
         gc.collect()
-
-# try the following
-# import ctypes
-# ctypes.CDLL('libc.so.6').malloc_trim(0)
+        ctypes.CDLL('libc.so.6').malloc_trim(0)
