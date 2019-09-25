@@ -8,9 +8,9 @@ from complex_ems_lowmem import ComplexEMS as ems
 from mcts import uct_search, StateNode
 from networks import evaluator, forecaster
 
-EPISODES = 10
+EPISODES = 1
 EPISODE_LENGTH = 48
-SEARCH_DEPTH = 50
+SEARCH_DEPTH = 2
 
 
 def prepare_eval_train(eval_train, evaluator_network):
@@ -46,7 +46,7 @@ def evaluate_current_iteration(high_score, forecast, LOGFILE=False, PLOT=False):
     log, soc = [], []
     cum_r = 0
     for i in range(96):
-        action, root = uct_search(StateNode(state, test_env, test_env.vars), SEARCH_DEPTH, [], evaluator_network=evaluator_network, use_dirichlet=False)
+        action, root = uct_search(StateNode(state, test_env, test_env.variables), SEARCH_DEPTH, [], evaluator_network=evaluator_network, use_dirichlet=False)
         state, r, done, _ = test_env.step(action)
         log.append([action, state[0], state[1], state[2], state[3], r])
         soc.append(state[0])
@@ -83,7 +83,7 @@ def create_training_samples(forecast_timeseries):
         state = env.reset()
         done = False
         while not done:
-            action, uct_node = uct_search(StateNode(state, env, env.vars), SEARCH_DEPTH,
+            action, uct_node = uct_search(StateNode(state, env, env.variables), SEARCH_DEPTH,
                                           forecast_timeseries, evaluator_network=evaluator_network)
             next_state, reward, done, info = env.step(action)
             eval_train.append([state, reward, uct_node.child_number_visits])

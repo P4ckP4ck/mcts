@@ -78,7 +78,15 @@ class VPPThermalEnergyStorage(object):
         self.state_of_charge -= (thermal_demand - thermal_production) * 1000 / (60/self.timebase)
         self.state_of_charge *= self.heatloss_per_timestep
         self.current_temperature = (self.state_of_charge / (self.mass * self.cp)) - 273.15
-        return self.current_temperature
+        return self.current_temperature, self.state_of_charge
+    #
+    def forecast_storage_reinforcement(self, thermal_demand, thermal_production, state_of_charge):
+        #Formula: E = m * cp * T
+        #     <=> T = E / (m * cp)
+        state_of_charge -= (thermal_demand - thermal_production) * 1000 / (60/self.timebase)
+        state_of_charge *= self.heatloss_per_timestep
+        current_temperature = (state_of_charge / (self.mass * self.cp)) - 273.15
+        return current_temperature, state_of_charge
 
     def get_needs_loading(self):     
         if self.current_temperature <= (self.target_temperature - self.hysteresis): 

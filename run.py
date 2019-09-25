@@ -1,4 +1,4 @@
-import ctypes
+# import ctypes
 import logging
 import os
 import time
@@ -10,7 +10,7 @@ from mcts import calc_time_waves
 from networks import forecaster
 from training import create_training_samples, training_phase, evaluate_current_iteration
 
-os.system("taskset -p 0xff %d" % os.getpid())
+# os.system("taskset -p 0xff %d" % os.getpid())
 os.environ['KMP_WARNINGS'] = 'off'
 logging.disable(logging.WARNING)
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
@@ -72,5 +72,5 @@ if __name__ == '__main__':
         eval_hist = training_phase(eval_train)
         if not (episode+1) % PRINT_EVERY_X_ITER:
             high_score, eval_result = evaluation_phase(high_score, eval_result, forecast_timeseries)
-        ctypes.CDLL('libc.so.6').malloc_trim(0)
+        # ctypes.CDLL('libc.so.6').malloc_trim(0)
 

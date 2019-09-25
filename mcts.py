@@ -6,7 +6,7 @@ import numpy as np
 
 
 class UCTNode:
-    def __init__(self, state, move, parent=None, action_size=3):
+    def __init__(self, state, move, parent=None, action_size=4):
         self.state = state
         self.move = move
         self.is_expanded = False
@@ -108,14 +108,14 @@ def calc_time_waves(env_time):
 
 
 class StateNode:
-    def __init__(self, state, env, vars):
+    def __init__(self, state, env, variables):
         self.state = state
         self.time = env.time
         self.env = env
-        self.vars = deepcopy(vars)
+        self.variables = deepcopy(variables)
 
     def play(self, move):
-        state, reward, done, vars = self.env.step_forecast(move, self.vars)
+        state, reward, done, variables = self.env.step_forecast(move, self.variables)
         # env_time = self.time + 1
         # action = move[0]
         # state_transition = move[1]
@@ -136,7 +136,7 @@ class StateNode:
 
         # time_waves = calc_time_waves(env_time)
         # state = np.hstack([time_waves, state_of_charge, next_residual])
-        return StateNode(state, self.env, vars)
+        return StateNode(state, self.env, variables)
 
 if __name__ == "__main__":
     from complex_ems import ComplexEMS as ems
