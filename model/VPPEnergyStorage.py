@@ -232,6 +232,23 @@ class VPPEnergyStorage(VPPComponent):
     # ===================================================================================
     # Controlling functions
     # ===================================================================================
+    def forecast_charge(self, energy, timebase, soc):
+
+        # Check if power exceeds max power
+        power = energy / (timebase / 60)
+
+        if power > self.maxPower * self.maxC:
+            energy = (self.maxPower * self.maxC) * (timebase / 60)
+
+
+        # Check if charge exceeds capacity
+        if soc + energy * self.chargeEfficiency > self.capacity:
+            energy = (self.capacity - soc) * (1 / self.chargeEfficiency)
+
+
+        # Update state of charge
+        soc += energy * self.chargeEfficiency
+        return soc
 
     def charge(self, energy, timebase, timestamp):
         

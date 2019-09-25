@@ -8,9 +8,9 @@ from complex_ems_lowmem import ComplexEMS as ems
 from mcts import uct_search, StateNode
 from networks import evaluator, forecaster
 
-EPISODES = 1
-EPISODE_LENGTH = 48
-SEARCH_DEPTH = 2
+EPISODES = 10
+EPISODE_LENGTH = 96
+SEARCH_DEPTH = 50
 
 
 def prepare_eval_train(eval_train, evaluator_network):
