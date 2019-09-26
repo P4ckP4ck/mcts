@@ -17,7 +17,7 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
 EPISODES = 15
 PRINT_EVERY_X_ITER = 5
-HIGH_SCORE = 0
+HIGH_SCORE = 10.354
 
 
 def prepare_forecast_timeseries(forecast_network):

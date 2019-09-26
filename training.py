@@ -19,10 +19,10 @@ def prepare_eval_train(eval_train, evaluator_network):
     actions = np.argmax(np.stack(eval_train[:, 2]), axis=1)
     rewards = np.stack(eval_train[:, 1])
     x = states
-    action_priors = np.stack(eval_train[:, 2], axis=1)/np.sum(eval_train[:, 2][0], axis=0) #soft update version
+    action_priors = np.stack(eval_train[:, 2], axis=1)/np.sum(eval_train[:, 2][0], axis=0)  # soft update version
     index = range(x.shape[0])
-    # action_priors = np.zeros((x.shape[0], 3))
-    # action_priors[index, actions] = 1
+    # action_priors = np.zeros((x.shape[0], 3))  # hard update version
+    # action_priors[index, actions] = 1  # hard update version
     values = evaluator_network.predict(x)[1]
     values[index, actions] = rewards
     return x, [action_priors.T, values]
@@ -38,19 +38,18 @@ def prepare_forecast_train(forecast_train):
 
 
 def evaluate_current_iteration(high_score, forecast, LOGFILE=False, PLOT=False):
+    inside_search_depth = 100
     evaluator_network = evaluator.evaluator_net()
     evaluator_network.load_weights("./networks/evaluator_weights.h5")
     test_env = ems(960)
     state = test_env.reset()
     test_env.time = 20000
-    log, soc = [], []
     cum_r = 0
-    for i in range(96):
-        action, root = uct_search(StateNode(state, test_env, test_env.variables), SEARCH_DEPTH, [], evaluator_network=evaluator_network, use_dirichlet=False)
-        state, r, done, _ = test_env.step(action)
-        log.append([action, state[0], state[1], state[2], state[3], r])
-        soc.append(state[0])
-        cum_r += r
+    for i in range(960):
+        action, root = uct_search(StateNode(state, test_env, test_env.variables), inside_search_depth,
+                                  [], evaluator_network=evaluator_network, use_dirichlet=False)
+        state, reward, done, _ = test_env.step(action, EVALUATION=True)
+        cum_r += reward
 
     if cum_r > high_score:
         print(f"\n\n--=== New highscore achieved: {cum_r}! ===--\n\n")
@@ -60,14 +59,14 @@ def evaluate_current_iteration(high_score, forecast, LOGFILE=False, PLOT=False):
     else:
         print(f"No new highscore, current performance: {cum_r}!")
 
-    if PLOT:
-        pd.DataFrame(soc).plot()
-        plt.show(block=True)
-        plt.close()
-
-    if LOGFILE:
-        xls = pd.DataFrame(log)
-        xls.to_excel("results_log_AlphaZero.xls")
+    # if PLOT:
+    #     pd.DataFrame(soc).plot()
+    #     plt.show(block=True)
+    #     plt.close()
+    #
+    # if LOGFILE:
+    #     xls = pd.DataFrame(log)
+    #     xls.to_excel("results_log_AlphaZero.xls")
     return high_score
 
 

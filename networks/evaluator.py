@@ -5,7 +5,7 @@ from keras.models import Model
 from keras.optimizers import Adam
 
 
-def evaluator_net(obs=6, actions=4):
+def evaluator_net(obs=6, actions=7):
     inp = Input((obs,))
     x = Dense(24, activation='relu')(inp)
     # x = Dense(24, activation='relu')(x)

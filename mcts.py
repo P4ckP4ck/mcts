@@ -6,7 +6,7 @@ import numpy as np
 
 
 class UCTNode:
-    def __init__(self, state, move, parent=None, action_size=4):
+    def __init__(self, state, move, parent=None, action_size=7):
         self.state = state
         self.move = move
         self.is_expanded = False

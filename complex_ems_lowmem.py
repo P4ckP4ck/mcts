@@ -10,17 +10,13 @@ from model.VPPHeatPump import VPPHeatPump
 from model.VPPPhotovoltaic import VPPPhotovoltaic
 from model.VPPThermalEnergyStorage import VPPThermalEnergyStorage
 from model.VPPUserProfile import VPPUserProfile
+LOG_LEN = 959
+log_global = deque(maxlen=LOG_LEN)
+col_indexes = ["temperature", "el_loadprofile", "th_loadprofile", "heatpump", "bev_at_home", "bev_battery",
+               "bev", "pv", "current_demand", "current_production", "temp_residual", "current_residual",
+               "electrical_storage_charge", "electrical_storage_discharge", "done", "action", "reward",
+               "bev_charge_flag", "heatpump_flag", "thermal_storage", "th_soc", "cost"]
 
-log_global = deque(maxlen=50)
-col_indexes = ["temperature", "el_loadprofile", "th_loadprofile", "heatpump", "bev_at_home", "bev_battery", "bev", "pv", "current_demand",
-               "current_production", "temp_residual", "current_residual", "electrical_storage_charge",
-               "electrical_storage_discharge", "done", "action", "reward", "bev_charge_flag", "heatpump_flag", "thermal_storage", "th_soc"]
-def log_res(log):
-    global log_global
-    log_global.append(log)
-    if len(log_global) == 50:
-        pd.DataFrame(log_global, columns=col_indexes).to_csv("LOG_GLOBAL.csv")
-        log_global = deque(maxlen=50)
 
 class ComplexEMS:
     def __init__(self, ep_len=96):
@@ -38,14 +34,20 @@ class ComplexEMS:
                                           delimiter="\t")["0"]/1000
         self.th_loadprofile = self.init_up()
         self.temperature = self.init_temperature()
-        self.heatpump = self.init_heatpump(10)
+        self.heatpump = self.init_heatpump(5)
         self.heatpump_flag = 0
         self.bev = self.init_bev()
         self.bev_charge_flag = 0
         self.pv = self.init_pv()
         self.el_storage = self.init_el_storage()
         self.th_storage = self.init_th_storage()
+        self.log = deque(maxlen=LOG_LEN)
 
+    def log_result(self, log):
+        self.log.append(log)
+        if len(self.log) == LOG_LEN:
+            pd.DataFrame(self.log, columns=col_indexes).to_csv("results_log.csv")
+            self.log = deque(maxlen=LOG_LEN)
 
     def init_temperature(self):
         temperature = pd.read_csv('./Input_House/heatpump_model/mean_temp_hours_2017_indexed.csv', index_col="time")
@@ -58,10 +60,10 @@ class ComplexEMS:
     def init_heatpump(self, power):
         start = '2017-01-01 00:00:00'
         end = '2017-12-31 23:45:00'
-        rampUpTime = 1/15 #timesteps
-        rampDownTime = 1/15 #timesteps
-        minimumRunningTime = 1 #timesteps
-        minimumStopTime = 2 #timesteps
+        rampUpTime = 1/15  # timesteps
+        rampDownTime = 1/15  # timesteps
+        minimumRunningTime = 1  # timesteps
+        minimumStopTime = 2  # timesteps
         timebase = 15
 
         hp = VPPHeatPump(identifier="hp_1", timebase=timebase, heatpump_type="Air",
@@ -132,12 +134,32 @@ class ComplexEMS:
     #     cost_sum, production_sum = np.sum(costs_production, axis=0)
     #     return cost_sum/production_sum
 
+    def set_action(self, action):
+        hp, bev, charge = 0, 0, 0
+        if action == 0:
+            pass
+        elif action == 1:
+            hp = 1
+        elif action == 2:
+            hp, bev = 1, 1
+        elif action == 3:
+            hp, bev, charge = 1, 1, 1
+        elif action == 4:
+            bev = 1
+        elif action == 5:
+            bev, charge = 1, 1
+        elif action == 6:
+            charge = 1
+        elif action == 7:
+            hp, charge = 1, 1
+        return hp, bev, charge
+
     def calc_cost_current_mix(self):
         cost, prod = 0, 0
         for tech in self.cost_per_kwh:
             cost += self.cost_per_kwh[tech] * self.production_per_tech[tech]
             prod += self.production_per_tech[tech]
-        return cost/prod
+        return cost/prod, cost
 
     def reset(self):
         self.rand_start = int(np.random.rand()*(35040-self.ep_len))
@@ -149,7 +171,7 @@ class ComplexEMS:
                      "bev_battery": 0, "bev_charge_flag": self.bev_charge_flag, "time": self.time}
         return state
 
-    def step(self, action):
+    def step(self, action, EVALUATION=False):
         """
         demand - non controllable     = LoadProfile
         production - non controllable = Photovoltaic, Wind
@@ -207,21 +229,23 @@ class ComplexEMS:
         """
         # step 1: apply actions
         heatpump_action, bad_action = 0, False
-        if action == 1:
-            # if self.heatpump_flag == 0:
-            self.heatpump_flag= 1
-            # else:
-            #     self.heatpump_flag = 0
-            heatpump_action = 1
-        if action == 2:
-            # if self.bev_charge_flag == 1:
-            #     bad_action = True
-            self.bev_charge_flag = 1
-
-        if action == 3:
-            self.bev_charge_flag = 1
-            self.heatpump_flag= 1
-            heatpump_action = 1
+        self.heatpump_flag, self.bev_charge_flag, el_charge = self.set_action(action)
+        heatpump_action = self.heatpump_flag
+        # if action == 1:
+        #     # if self.heatpump_flag == 0:
+        #     self.heatpump_flag= 1
+        #     # else:
+        #     #     self.heatpump_flag = 0
+        #     heatpump_action = 1
+        # if action == 2:
+        #     # if self.bev_charge_flag == 1:
+        #     #     bad_action = True
+        #     self.bev_charge_flag = 1
+        #
+        # if action == 3:
+        #     self.bev_charge_flag = 1
+        #     self.heatpump_flag= 1
+        #     heatpump_action = 1
 
         # step 1: calculate all demands and productions
         temperature = self.temperature.iat[self.time, 0]
@@ -239,13 +263,18 @@ class ComplexEMS:
         electrical_storage_charge, electrical_storage_discharge = 0, 0
         thermal_storage, th_soc, bad_action = self.operate_th_storage(th_loadprofile, heatpump_action)
 
-        if temp_residual < 0 and (self.el_storage.stateOfCharge/self.el_storage.capacity) != 1:
+        if el_charge:
+            bad_action = True
+
+        if temp_residual < 0 and (self.el_storage.stateOfCharge/self.el_storage.capacity) != 1 and el_charge:
             electrical_storage_charge = np.clip(abs(temp_residual), 0, self.el_storage.maxPower)
             self.el_storage.charge(electrical_storage_charge, 15, self.time)
+            bad_action = False
 
-        if temp_residual > 0 and (self.el_storage.stateOfCharge/self.el_storage.capacity) != 0:
+        if temp_residual > 0 and (self.el_storage.stateOfCharge/self.el_storage.capacity) != 0 and el_charge:
             electrical_storage_discharge = np.clip(temp_residual, 0, self.el_storage.maxPower)
             self.el_storage.discharge(electrical_storage_discharge, 15, self.time)
+            bad_action = False
 
         # step 3: calculate residual load
         current_demand += electrical_storage_charge
@@ -259,8 +288,8 @@ class ComplexEMS:
             self.production_per_tech = {"regular": 0, "PV": pv, "Wind": 0,
                                         "CHP": 0, "El_Store": electrical_storage_discharge}
 
-        reward = 1-np.clip(self.calc_cost_current_mix()*4, 0, 1)
-
+        specific_cost, full_cost = self.calc_cost_current_mix()
+        reward = 1-np.clip(specific_cost*4, 0, 1)
         if thermal_storage < 55 or thermal_storage > 65:
             bad_action = True
 
@@ -278,36 +307,40 @@ class ComplexEMS:
         self.variables = {"heatpump_flag": self.heatpump_flag, "store_temp": th_soc, "el_store": self.el_storage.stateOfCharge,
                      "bev_battery": bev_battery, "bev_charge_flag": self.bev_charge_flag, "time": self.time}
         done = self.time >= self.rand_start + self.ep_len
-        state = np.array([current_residual/26, (thermal_storage-55)/10, bev_at_home, bev_battery,
+        state = np.array([current_residual/26, (thermal_storage-55)/10, bev_at_home, bev_battery/self.bev.battery_max,
                           self.bev_charge_flag, self.heatpump_flag])
         self.time += 1
-        # log = [temperature, el_loadprofile, th_loadprofile, heatpump, bev_at_home, bev_battery, bev, pv, current_demand,
-        #        current_production, temp_residual, current_residual, electrical_storage_charge,
-        #        electrical_storage_discharge, done, action, reward, self.bev_charge_flag, self.heatpump_flag,
-        #        thermal_storage, th_soc]
-        # log_res(log)
+        if EVALUATION == True:
+            log = [temperature, el_loadprofile, th_loadprofile, heatpump, bev_at_home, bev_battery, bev, pv, current_demand,
+                   current_production, temp_residual, current_residual, electrical_storage_charge,
+                   electrical_storage_discharge, done, action, reward, self.bev_charge_flag, self.heatpump_flag,
+                   thermal_storage, th_soc, full_cost]
+            self.log_result(log)
         return state, reward, done, self.variables
 
     def step_forecast(self, action, variables):
         # step 1: apply actions
         time = variables["time"]
         heatpump_action, bad_action = 0, False
-        if action == 1:
-            # if variables["heatpump_flag"] == 0:
-            variables["heatpump_flag"] = 1
-            # else:
-            #     variables["heatpump_flag"] = 0
-            heatpump_action = 1
-        if action == 2:
-            # if variables["bev_charge_flag"] == 1:
-            #     bad_action = True
-            variables["bev_charge_flag"] = 1
-        if action == 3:
-            variables["bev_charge_flag"] = 1
-            variables["heatpump_flag"] = 1
-            # else:
-            #     variables["heatpump_flag"] = 0
-            heatpump_action = 1
+        variables["heatpump_flag"], variables["bev_charge_flag"], el_charge = self.set_action(action)
+        heatpump_action = variables["heatpump_flag"]
+        # if action == 1:
+        #     # if variables["heatpump_flag"] == 0:
+        #     variables["heatpump_flag"] = 1
+        #     # else:
+        #     #     variables["heatpump_flag"] = 0
+        #     heatpump_action = 1
+        # if action == 2:
+        #     # if variables["bev_charge_flag"] == 1:
+        #     #     bad_action = True
+        #     variables["bev_charge_flag"] = 1
+        #
+        # if action == 3:
+        #     variables["bev_charge_flag"] = 1
+        #     variables["heatpump_flag"] = 1
+        #     # else:
+        #     #     variables["heatpump_flag"] = 0
+        #     heatpump_action = 1
 
         # step 1: calculate all demands and productions
         temperature = self.temperature.iat[time, 0]
@@ -325,13 +358,20 @@ class ComplexEMS:
         electrical_storage_charge, electrical_storage_discharge = 0, 0
         thermal_storage, th_soc, bad_action = self.forecast_th_storage(th_loadprofile, heatpump_action, variables)
         soc = variables["el_store"]
-        if temp_residual < 0 and variables["el_store"]/self.el_storage.capacity != 1:
+
+        if el_charge:
+            bad_action = True
+
+        if temp_residual < 0 and variables["el_store"]/self.el_storage.capacity != 1 and el_charge:
             electrical_storage_charge = np.clip(abs(temp_residual), 0, self.el_storage.maxPower)
             soc = self.el_storage.forecast_charge(electrical_storage_charge, 15, variables["el_store"])
+            bad_action = False
 
-        if temp_residual > 0 and variables["el_store"]/self.el_storage.capacity != 0:
+        if temp_residual > 0 and variables["el_store"]/self.el_storage.capacity != 0 and el_charge:
             electrical_storage_discharge = np.clip(temp_residual, 0, self.el_storage.maxPower)
             soc = self.el_storage.forecast_charge(electrical_storage_discharge, 15, variables["el_store"])
+            bad_action = False
+
 
         # step 3: calculate residual load
         current_demand += electrical_storage_charge
@@ -345,7 +385,8 @@ class ComplexEMS:
             self.production_per_tech = {"regular": 0, "PV": pv, "Wind": 0,
                                         "CHP": 0, "El_Store": electrical_storage_discharge}
 
-        reward = 1-np.clip(self.calc_cost_current_mix()*4, 0, 1)
+        specific_cost, full_cost = self.calc_cost_current_mix()
+        reward = 1-np.clip(specific_cost * 4, 0, 1)
 
         if thermal_storage < 55 or thermal_storage > 65:
             bad_action = True
@@ -364,7 +405,7 @@ class ComplexEMS:
 
         done = time >= self.rand_start + self.ep_len
 
-        state = np.array([current_residual/26, (thermal_storage-55)/10, bev_at_home, bev_battery, variables["bev_charge_flag"], variables["heatpump_flag"]])
+        state = np.array([current_residual/26, (thermal_storage-55)/10, bev_at_home, bev_battery/self.bev.battery_max, variables["bev_charge_flag"], variables["heatpump_flag"]])
         time += 1
         variables = {"heatpump_flag": variables["heatpump_flag"], "store_temp": th_soc, "el_store": soc,
                      "bev_battery": bev_battery, "bev_charge_flag": variables["bev_charge_flag"], "time": time}
@@ -388,7 +429,7 @@ class ComplexEMS:
         temp, soc = self.th_storage.operate_storage_reinforcement(heat_demand, heat_production)
         return temp, soc, not feedback
 
-    def forecast_th_storage(self, heat_demand, hp_action, vars):
+    def forecast_th_storage(self, heat_demand, hp_action, variables):
         feedback = True
         # if hp_action:
         #     if variables["heatpump_flag"]:
@@ -401,7 +442,7 @@ class ComplexEMS:
             heat_production = self.heatpump.heatpump_power
         else:
             heat_production = 0
-        temp, soc = self.th_storage.forecast_storage_reinforcement(heat_demand, heat_production, vars["store_temp"])
+        temp, soc = self.th_storage.forecast_storage_reinforcement(heat_demand, heat_production, variables["store_temp"])
         return temp, soc, not feedback
 
 def time_func(func, rounds=10000):
