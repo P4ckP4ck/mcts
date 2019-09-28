@@ -68,7 +68,7 @@ class VPPBEV(VPPComponent):
         self.start = start
         self.end = end
         self.time_freq = time_freq
-        self.timebase = timebase #time_base = 15/60 #for loadshapes with steps, smaller than one hour (eg. 15 minutes)
+        self.timebase = timebase  # time_base = 15/60 #for loadshapes with steps, smaller than one hour (eg. 15 minutes)
         self.limit = 1
         self.date = []
         self.hour = []
@@ -83,7 +83,6 @@ class VPPBEV(VPPComponent):
         self.identifier = identifier
       
     def prepareTimeSeries(self):
-        
         #TODO: export to VPPUserProfile
         weekend_trip_start = ['08:00:00', '08:15:00', '08:30:00', '08:45:00', 
                               '09:00:00', '09:15:00', '09:30:00', '09:45:00',
@@ -112,16 +111,16 @@ class VPPBEV(VPPComponent):
                     '21:00:00', '21:15:00', '21:30:00', '21:45:00', 
                     '22:00:00']
         
-        self.timeseries = pd.DataFrame(pd.date_range(start=self.start, end=self.end, 
-                                             freq=self.time_freq, name ='Time'))
+        self.timeseries = pd.DataFrame(pd.date_range(start=self.start, end=self.end,
+                                                     freq=self.time_freq, name ='Time'))
         self.timeseries['car_charger'] = 0
-        self.timeseries.set_index(self.timeseries.Time, inplace = True)
+        self.timeseries.set_index(self.timeseries.Time, inplace=True)
         
         self.split_time() 
         self.set_weekday()
         self.set_at_home(work_start, work_end, weekend_trip_start, weekend_trip_end)
         self.charge()
-        self.timeseries.set_index('Time', inplace = True, drop = True)
+        self.timeseries.set_index('Time', inplace=True, drop=True)
         self.timeseries['at_home'] = self.at_home
     
     
@@ -129,10 +128,6 @@ class VPPBEV(VPPComponent):
     # Controlling functions
     # ===================================================================================
     def charge_forecast(self, at_home, charge_flag, battery_charge):
-        # battery_charge = self.battery_max #initial state of charge at the first timestep
-        # battery = 0
-        # charger = 0
-
         if (at_home == 0) & (battery_charge > self.battery_min):
             #if car is not at home discharge battery with X kW/h
             battery_charge = battery_charge - self.battery_usage * self.timebase
@@ -175,13 +170,9 @@ class VPPBEV(VPPComponent):
             battery = battery_charge
             charger = 0
 
-        if battery_charge == self.battery_max:
-            charge_flag = 0
-
         return battery, charger, charge_flag
 
-    def charge_timestep(self, at_home, charge_flag):
-        battery_charge = self.battery_max #initial state of charge at the first timestep
+    def charge_timestep(self, at_home, charge_flag, battery_charge):
         battery = 0
         charger = 0
 
@@ -193,9 +184,9 @@ class VPPBEV(VPPComponent):
                 battery_charge = self.battery_min
 
             battery = battery_charge
-            charger = 0 #if car is not at home, chargers energy consumption is 0
+            charger = 0  # if car is not at home, chargers energy consumption is 0
 
-        #Function to apply the load_degradation to the load profile
+        # Function to apply the load_degradation to the load profile
         elif (at_home == 1) & (battery_charge > self.battery_max * self.load_degradiation_begin) & charge_flag:
             degraded_charging_power = self.charging_power * (1 - (battery_charge / self.battery_max - self.load_degradiation_begin)/(1 - self.load_degradiation_begin))
             battery_charge = battery_charge + (degraded_charging_power * self.chargeEfficiency * self.timebase)
@@ -226,9 +217,6 @@ class VPPBEV(VPPComponent):
         else:
             battery = battery_charge
             charger = 0
-
-        if battery_charge == self.battery_max:
-            charge_flag = 0
 
         return battery, charger, charge_flag
 

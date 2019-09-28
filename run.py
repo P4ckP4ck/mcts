@@ -15,9 +15,9 @@ os.environ['KMP_WARNINGS'] = 'off'
 logging.disable(logging.WARNING)
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
-EPISODES = 15
-PRINT_EVERY_X_ITER = 5
-HIGH_SCORE = 10.354
+EPISODES = 50
+PRINT_EVERY_X_ITER = 10
+HIGH_SCORE = 309
 
 
 def prepare_forecast_timeseries(forecast_network):
