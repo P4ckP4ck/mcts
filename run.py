@@ -16,7 +16,7 @@ logging.disable(logging.WARNING)
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
 EPISODES = 50
-PRINT_EVERY_X_ITER = 10
+PRINT_EVERY_X_ITER = 3
 HIGH_SCORE = 309
 
 

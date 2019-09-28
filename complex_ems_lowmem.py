@@ -24,6 +24,7 @@ class ComplexEMS:
         # gym declarations
         self.obs = 8
         self.ep_len = ep_len
+        self.timebase = 15/60
 
         # operational variables
         self.time = 0
@@ -148,6 +149,7 @@ class ComplexEMS:
             bev = 1
         elif action == 5:
             bev, charge = 1, 1
+
         elif action == 6:
             charge = 1
         elif action == 7:
@@ -236,9 +238,9 @@ class ComplexEMS:
 
         # step 1: calculate all demands and productions
         temperature = self.temperature.iat[self.time, 0]
-        el_loadprofile = self.el_loadprofile.iat[self.time]/1000
+        el_loadprofile = self.el_loadprofile.iat[self.time]
         th_loadprofile = self.th_loadprofile.iat[self.time, 0]
-        heatpump = (self.heatpump.heatpump_power / self.heatpump.get_current_cop(temperature)) * self.heatpump_flag
+        heatpump = (self.heatpump.heatpump_power / self.heatpump.get_current_cop(temperature)) * self.heatpump_flag * self.timebase
         bev_at_home = self.bev.at_home.iat[self.time, 0]
         self.bev_battery, bev, self.bev_charge_flag = self.bev.charge_timestep(bev_at_home, self.bev_charge_flag, self.bev_battery)
         pv = self.pv.timeseries.iat[self.time, 0]*5
@@ -319,9 +321,9 @@ class ComplexEMS:
 
         # step 1: calculate all demands and productions
         temperature = self.temperature.iat[time, 0]
-        el_loadprofile = self.el_loadprofile.iat[time]/1000
+        el_loadprofile = self.el_loadprofile.iat[time]
         th_loadprofile = self.th_loadprofile.iat[time, 0]
-        heatpump = (self.heatpump.heatpump_power / self.heatpump.get_current_cop(temperature)) * heatpump_action
+        heatpump = (self.heatpump.heatpump_power / self.heatpump.get_current_cop(temperature)) * heatpump_action * self.timebase
         bev_at_home = self.bev.at_home.iat[time, 0]
         bev_battery, bev, variables["bev_charge_flag"] = self.bev.charge_forecast(bev_at_home, variables["bev_charge_flag"], variables["bev_battery"])
         pv = self.pv.timeseries.iat[time, 0]*5

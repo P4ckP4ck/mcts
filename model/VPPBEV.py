@@ -145,7 +145,7 @@ class VPPBEV(VPPComponent):
             charger = degraded_charging_power
 
             if battery_charge > self.battery_max:
-                charger = self.charging_power - (battery_charge - self.battery_max)
+                charger = self.charging_power * self.timebase - (battery_charge - self.battery_max)
                 battery_charge = self.battery_max
 
             battery = battery_charge
@@ -154,11 +154,11 @@ class VPPBEV(VPPComponent):
         #If car is at home, charge with charging power. If timescale is hours charging power results in kWh
         elif (at_home == 1) & (battery_charge < self.battery_max) & charge_flag:
             battery_charge = battery_charge + (self.charging_power * self.chargeEfficiency * self.timebase)
-            charger = self.charging_power
+            charger = self.charging_power * self.timebase
 
             #If battery would be overcharged, charge only with kWh left
-            if battery_charge > self.battery_max & charge_flag:
-                charger = self.charging_power - (battery_charge - self.battery_max)
+            if battery_charge > self.battery_max:
+                charger = self.charging_power * self.timebase - (battery_charge - self.battery_max)
                 battery_charge = self.battery_max
 
             battery = battery_charge
@@ -193,7 +193,7 @@ class VPPBEV(VPPComponent):
             charger = degraded_charging_power
 
             if battery_charge > self.battery_max:
-                charger = self.charging_power - (battery_charge - self.battery_max)
+                charger = self.charging_power * self.timebase - (battery_charge - self.battery_max)
                 battery_charge = self.battery_max
 
             battery = battery_charge
@@ -202,11 +202,11 @@ class VPPBEV(VPPComponent):
         #If car is at home, charge with charging power. If timescale is hours charging power results in kWh
         elif (at_home == 1) & (battery_charge < self.battery_max) & charge_flag:
             battery_charge = battery_charge + (self.charging_power * self.chargeEfficiency * self.timebase)
-            charger = self.charging_power
+            charger = self.charging_power * self.timebase
 
             #If battery would be overcharged, charge only with kWh left
             if battery_charge > self.battery_max & charge_flag:
-                charger = self.charging_power - (battery_charge - self.battery_max)
+                charger = self.charging_power * self.timebase - (battery_charge - self.battery_max)
                 battery_charge = self.battery_max
 
             battery = battery_charge
